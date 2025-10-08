@@ -224,6 +224,16 @@ if st.button("Получить рейтинги"):
 
     if results:
         df = pd.DataFrame(results)
-        st.dataframe(df, width='stretch')
+        # st.dataframe(df, width='stretch')
+
+        # 1. Добавление новой колонки "№" (или "Индекс"), начинающейся с 1
+        # 'df.index' - это стандартный индекс, начинающийся с 0.
+        # 'df.index + 1' - это нумерация, начинающаяся с 1.
+        df.insert(0, '№', df.index + 1)
+
+        # 2. Вывод таблицы
+        # hide_index=True, чтобы скрыть старый индекс Pandas (0, 1, 2...)
+        st.dataframe(df, width='stretch', hide_index=True)
+
     else:
         st.warning("Введите никнеймы для получения данных.")
