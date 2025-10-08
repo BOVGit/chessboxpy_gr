@@ -71,7 +71,8 @@ st.markdown("""
 
     /* ВАЖНО: Label'ы для текстовых полей */
     label {
-        color: #ffffff !important;
+        /* color: #ffffff !important; */
+        color: grey !important;
         font-size: 1rem !important;
         font-weight: 500 !important;
     }
