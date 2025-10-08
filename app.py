@@ -6,6 +6,7 @@ import os
 
 # Функция для загрузки никнеймов из файла
 def load_nicknames():
+    return '', '' # debug
     try:
         if os.path.exists('nicknames.json'):
             with open('nicknames.json', 'r', encoding='utf-8') as f:
@@ -17,6 +18,7 @@ def load_nicknames():
 
 # Функция для сохранения никнеймов в файл
 def save_nicknames(lichess, chesscom):
+    return # debug
     try:
         with open('nicknames.json', 'w', encoding='utf-8') as f:
             json.dump({'lichess': lichess, 'chesscom': chesscom}, f, ensure_ascii=False)
