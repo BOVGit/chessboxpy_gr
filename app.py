@@ -1,52 +1,27 @@
 import streamlit as st
 import requests
-import pandas as pd  # Для создания таблицы из данных — удобно отображать в Streamlit.
-import json
-import os
+import pandas as pd
+import streamlit.components.v1 as components
 
-# Функция для загрузки никнеймов из файла
-def load_nicknames():
-    return '', '' # debug
-    try:
-        if os.path.exists('nicknames.json'):
-            with open('nicknames.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return data.get('lichess', ''), data.get('chesscom', '')
-    except Exception as e:
-        st.error(f"Ошибка загрузки никнеймов: {e}")
-    return '', ''
-
-# Функция для сохранения никнеймов в файл
-def save_nicknames(lichess, chesscom):
-    return # debug
-    try:
-        with open('nicknames.json', 'w', encoding='utf-8') as f:
-            json.dump({'lichess': lichess, 'chesscom': chesscom}, f, ensure_ascii=False)
-    except Exception as e:
-        st.error(f"Ошибка сохранения никнеймов: {e}")
-
-# Функция для получения рейтингов с Lichess.
-# Принимает никнейм, возвращает словарь с рейтингами или ошибку.
+# Функции для работы с рейтингами (оставляем без изменений)
 def get_lichess_ratings(username):
-    url = f"https://lichess.org/api/user/{username}"  # API-эндпоинт для Lichess.
+    url = f"https://lichess.org/api/user/{username}"
     try:
-        response = requests.get(url)  # Отправляем GET-запрос.
-        if response.status_code == 200:  # Если ответ успешный (200 — OK).
-            data = response.json()  # Преобразуем ответ в JSON.
-            perfs = data.get('perfs', {})  # Берём раздел "perfs" (рейтинги).
-            bullet = perfs.get('bullet', {}).get('rating', 'N/A')  # Рейтинг пули.
-            blitz = perfs.get('blitz', {}).get('rating', 'N/A')  # Рейтинг блица.
-            return {'bullet': bullet, 'blitz': blitz}  # Возвращаем словарь.
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            perfs = data.get('perfs', {})
+            bullet = perfs.get('bullet', {}).get('rating', 'N/A')
+            blitz = perfs.get('blitz', {}).get('rating', 'N/A')
+            return {'bullet': bullet, 'blitz': blitz}
         else:
-            return {'error': 'Игрок не найден'}  # Если ошибка — возвращаем сообщение.
-    except Exception as e:  # Если что-то сломалось (например, нет интернета).
-        return {'error': str(e)}  # Возвращаем текст ошибки.
+            return {'error': 'Игрок не найден'}
+    except Exception as e:
+        return {'error': str(e)}
 
-# Функция для получения рейтингов с Chess.com.
-# Аналогично Lichess, но другой эндпоинт и структура JSON.
 def get_chesscom_ratings(username):
     username = username.lower()
-    url = f"https://api.chess.com/pub/player/{username}/stats"  # URL всегда с lowercase.
+    url = f"https://api.chess.com/pub/player/{username}/stats"
     try:
         response = requests.get(url, headers={'User-Agent': 'my-app'})
         if response.status_code == 200:
@@ -59,155 +34,160 @@ def get_chesscom_ratings(username):
     except Exception as e:
         return {'error': str(e)}
 
-# Основная часть приложения в Streamlit.
-st.title("v1.5 Рейтинги на Lichess и Chess.com")  # Заголовок страницы.
+# Основная часть приложения
+st.title("v1.5 Рейтинги на Lichess и Chess.com")
 
-# CSS для тёмной темы с исправленной кнопкой
-st.markdown("""
-    <style>
-    /* Основной фон и текст */
-    .stApp {
-        background-color: #2b2b2b;
-        color: #e0e0e0;
-    }
+# Инициализация session_state для хранения реальных значений
+if 'real_lichess' not in st.session_state:
+    st.session_state.real_lichess = ""
+if 'real_chesscom' not in st.session_state:
+    st.session_state.real_chesscom = ""
 
-    /* ВАЖНО: Label'ы для текстовых полей */
-    label {
-        /* color: #ffffff !important; */
-        color: grey !important;
-        font-size: 1rem !important;
-        font-weight: 500 !important;
-    }
+# JavaScript компонент для работы с cookies и синхронизацией
+components.html(f"""
+<script>
+// Функции для работы с cookies
+function setCookie(name, value, days) {{
+    const d = new Date();
+    d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "expires=" + d.toUTCString();
+    document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/";
+}}
 
-    /* Поля ввода */
-    input {
-        background-color: #3a3a3a !important;
-        color: #ffffff !important;
-        border: 1px solid #555555 !important;
-        caret-color: #ffffff !important;  /* Цвет курсора */
-    }
+function getCookie(name) {{
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {{
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }}
+    return null;
+}}
 
-    /* Поля ввода в фокусе */
-    input:focus {
-        border-color: #4a7c59 !important;  /* Зелёная рамка при фокусе */
-        outline: none !important;
-        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.3) !important;
-    }
+// Восстанавливаем значения при загрузке и сообщаем Streamlit
+window.addEventListener('load', function() {{
+    setTimeout(function() {{
+        const lichessValue = getCookie('lichess_nicks') || '';
+        const chesscomValue = getCookie('chesscom_nicks') || '';
 
-    /* Стилизация кнопки */
-    .stButton > button {
-        background-color: #4a7c59 !important;  /* Зелёный шахматный цвет */
-        color: #ffffff !important;  /* Белый текст */
-        border: 2px solid #5a8c69 !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1rem !important;
-        border-radius: 5px !important;
-        transition: all 0.3s ease !important;
-    }
+        console.log('Loading cookies:', {{ lichess: lichessValue, chesscom: chesscomValue }});
 
-    /* Кнопка при наведении */
-    .stButton > button:hover {
-        background-color: #5a8c69 !important;
-        border-color: #6a9c79 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
-    }
+        // Заполняем поля
+        const inputs = parent.document.querySelectorAll('input[type="text"]');
+        if (inputs.length >= 2) {{
+            if (lichessValue) {{
+                inputs[0].value = lichessValue;
+            }}
+            if (chesscomValue) {{
+                inputs[1].value = chesscomValue;
+            }}
+        }}
 
-    /* Кнопка при нажатии */
-    .stButton > button:active {
-        background-color: #3a6c49 !important;
-        transform: translateY(0);
-    }
+        // Сообщаем Streamlit о реальных значениях
+        if (lichessValue || chesscomValue) {{
+            const message = {{
+                lichess: lichessValue,
+                chesscom: chesscomValue
+            }};
+            parent.window.postMessage({{type: 'COOKIE_VALUES', data: message}}, '*');
+        }}
+    }}, 500);
+}});
 
-    /* Кнопка в фокусе */
-    .stButton > button:focus {
-        color: #ffffff !important;  /* Текст всегда белый */
-        background-color: #4a7c59 !important;
-        border-color: #6a9c79 !important;
-        box-shadow: 0 0 0 3px rgba(74, 124, 89, 0.3) !important;
-    }
+// Слушаем сообщения от полей ввода
+window.addEventListener('message', function(event) {{
+    if (event.data.type === 'INPUT_CHANGE') {{
+        setCookie('lichess_nicks', event.data.lichess, 30);
+        setCookie('chesscom_nicks', event.data.chesscom, 30);
+    }}
+}});
+</script>
+""", height=0)
 
-    /* Таблица */
-    .dataframe {
-        background-color: #3a3a3a !important;
-        color: #e0e0e0 !important;
-    }
-    </style>
+# Слушаем сообщения от JavaScript
+def handle_js_messages():
+    # Этот код будет выполнен при загрузке для получения значений из cookies
+    pass
 
-    <script>
-    // Автофокус на первое поле при загрузке страницы
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            const inputs = parent.document.querySelectorAll('input[type="text"]');
-            if (inputs.length > 0) {
-                inputs[0].focus();
-            }
-        }, 100);
-    });
+handle_js_messages()
 
-    // Обработка нажатия Enter для submit формы
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            const button = parent.document.querySelector('.stButton > button');
-            if (button) {
-                button.click();
-            }
-        }
-    });
-    </script>
-""", unsafe_allow_html=True)
-
-# Инициализируем session_state для ников, если их нет.
-# Это обеспечивает сохранение данных между перезагрузками страницы.
-if 'lichess_nicks' not in st.session_state:
-    # Загружаем из файла при первом запуске
-    lichess_saved, chesscom_saved = load_nicknames()
-    st.session_state['lichess_nicks'] = lichess_saved
-    st.session_state['chesscom_nicks'] = chesscom_saved
-if 'chesscom_nicks' not in st.session_state:
-    st.session_state['chesscom_nicks'] = ""
-
-# Форма для ввода никнеймов с использованием on_change для автосохранения
-def save_lichess():
-    st.session_state['lichess_nicks'] = st.session_state['lichess_input']
-    # Сохраняем в файл
-    save_nicknames(st.session_state['lichess_nicks'], st.session_state['chesscom_nicks'])
-
-def save_chesscom():
-    st.session_state['chesscom_nicks'] = st.session_state['chesscom_input']
-    # Сохраняем в файл
-    save_nicknames(st.session_state['lichess_nicks'], st.session_state['chesscom_nicks'])
-
+# Поля ввода, которые синхронизируются с реальными значениями
 lichess_nicks = st.text_input(
     "Никнеймы на Lichess (через запятую, если несколько)",
-    value=st.session_state['lichess_nicks'],
-    key='lichess_input',
-    on_change=save_lichess
+    value=st.session_state.real_lichess,
+    key="lichess_input"
 )
 
 chesscom_nicks = st.text_input(
     "Никнеймы на Chess.com (через запятую, если несколько)",
-    value=st.session_state['chesscom_nicks'],
-    key='chesscom_input',
-    on_change=save_chesscom
+    value=st.session_state.real_chesscom,
+    key="chesscom_input"
 )
 
-# Кнопка для запуска.
-if st.button("Получить рейтинги"):
-    # Сохраняем введённые ники в session_state и файл.
-    st.session_state['lichess_nicks'] = lichess_nicks
-    st.session_state['chesscom_nicks'] = chesscom_nicks
-    save_nicknames(lichess_nicks, chesscom_nicks)
+# JavaScript для отслеживания изменений в полях ввода
+components.html(f"""
+<script>
+// Отслеживаем изменения в полях ввода
+function setupInputListeners() {{
+    const inputs = parent.document.querySelectorAll('input[type="text"]');
+    if (inputs.length >= 2) {{
+        inputs[0].addEventListener('input', function() {{
+            updateCookies();
+        }});
+        inputs[1].addEventListener('input', function() {{
+            updateCookies();
+        }});
+    }}
+}}
 
-    # Разбиваем ники на списки (удаляем пробелы).
-    lichess_list = [nick.strip() for nick in lichess_nicks.split(',') if nick.strip()]
-    chesscom_list = [nick.strip() for nick in chesscom_nicks.split(',') if nick.strip()]
+function updateCookies() {{
+    const inputs = parent.document.querySelectorAll('input[type="text"]');
+    if (inputs.length >= 2) {{
+        const lichessValue = inputs[0].value;
+        const chesscomValue = inputs[1].value;
+
+        setCookie('lichess_nicks', lichessValue, 30);
+        setCookie('chesscom_nicks', chesscomValue, 30);
+
+        // Сообщаем Streamlit о текущих значениях
+        const message = {{
+            lichess: lichessValue,
+            chesscom: chesscomValue
+        }};
+        parent.window.postMessage({{type: 'CURRENT_VALUES', data: message}}, '*');
+    }}
+}}
+
+// Инициализируем слушатели
+setupInputListeners();
+
+// Также обновляем при загрузке, если есть значения в полях
+const inputs = parent.document.querySelectorAll('input[type="text"]');
+if (inputs.length >= 2 && (inputs[0].value || inputs[1].value)) {{
+    updateCookies();
+}}
+</script>
+""", height=0)
+
+# Кнопка для запуска - используем реальные значения из полей
+if st.button("Получить рейтинги"):
+    # Берем значения напрямую из полей ввода
+    current_lichess = lichess_nicks
+    current_chesscom = chesscom_nicks
+
+    # Сохраняем в session_state
+    st.session_state.real_lichess = current_lichess
+    st.session_state.real_chesscom = current_chesscom
+
+    # Разбиваем ники на списки
+    lichess_list = [nick.strip() for nick in current_lichess.split(',') if nick.strip()]
+    chesscom_list = [nick.strip() for nick in current_chesscom.split(',') if nick.strip()]
 
     # Если списки разной длины — берём минимальную.
     min_len = min(len(lichess_list), len(chesscom_list))
     results = []
 
-    # Цикл по игрокам (предполагаем пары: первый Lichess с первым Chess.com и т.д.).
     for i in range(min_len):
         lichess_user = lichess_list[i]
         chesscom_user = chesscom_list[i]
@@ -226,16 +206,91 @@ if st.button("Получить рейтинги"):
 
     if results:
         df = pd.DataFrame(results)
-        # st.dataframe(df, width='stretch')
-
-        # 1. Добавление новой колонки "№" (или "Индекс"), начинающейся с 1
-        # 'df.index' - это стандартный индекс, начинающийся с 0.
-        # 'df.index + 1' - это нумерация, начинающаяся с 1.
         df.insert(0, '№', df.index + 1)
-
-        # 2. Вывод таблицы
-        # hide_index=True, чтобы скрыть старый индекс Pandas (0, 1, 2...)
         st.dataframe(df, width='stretch', hide_index=True)
-
     else:
         st.warning("Введите никнеймы для получения данных.")
+
+# Кнопка для очистки
+if st.button("Очистить поля"):
+    st.session_state.real_lichess = ""
+    st.session_state.real_chesscom = ""
+    components.html("""
+    <script>
+    setCookie('lichess_nicks', '', 30);
+    setCookie('chesscom_nicks', '', 30);
+    console.log('Cookies cleared');
+    </script>
+    """, height=0)
+    st.success("Поля очищены!")
+    st.rerun()
+
+# Отладочная информация
+st.write("🔧 Отладочная информация:")
+st.write(f"Lichess в session_state: '{st.session_state.real_lichess}'")
+st.write(f"Chess.com в session_state: '{st.session_state.real_chesscom}'")
+st.write(f"Lichess в поле: '{lichess_nicks}'")
+st.write(f"Chess.com в поле: '{chesscom_nicks}'")
+
+# CSS стили
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #2b2b2b;
+        color: #e0e0e0;
+    }
+
+    label {
+        color: grey !important;
+        font-size: 1rem !important;
+        font-weight: 500 !important;
+    }
+
+    input {
+        background-color: #3a3a3a !important;
+        color: #ffffff !important;
+        border: 1px solid #555555 !important;
+        caret-color: #ffffff !important;
+    }
+
+    input:focus {
+        border-color: #4a7c59 !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.3) !important;
+    }
+
+    .stButton > button {
+        background-color: #4a7c59 !important;
+        color: #ffffff !important;
+        border: 2px solid #5a8c69 !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 5px !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .stButton > button:hover {
+        background-color: #5a8c69 !important;
+        border-color: #6a9c79 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .stButton > button:active {
+        background-color: #3a6c49 !important;
+        transform: translateY(0);
+    }
+
+    .stButton > button:focus {
+        color: #ffffff !important;
+        background-color: #4a7c59 !important;
+        border-color: #6a9c79 !important;
+        box-shadow: 0 0 0 3px rgba(74, 124, 89, 0.3) !important;
+    }
+
+    .dataframe {
+        background-color: #3a3a3a !important;
+        color: #e0e0e0 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
