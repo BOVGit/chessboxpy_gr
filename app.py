@@ -58,7 +58,7 @@ def get_chesscom_ratings(username):
         return {'error': str(e)}
 
 # Основная часть приложения в Streamlit.
-st.title("Рейтинги на Lichess и Chess.com")  # Заголовок страницы.
+st.title("v1.1 Рейтинги на Lichess и Chess.com")  # Заголовок страницы.
 
 # CSS для тёмной темы с исправленной кнопкой
 st.markdown("""
