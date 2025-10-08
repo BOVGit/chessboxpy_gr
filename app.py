@@ -39,17 +39,19 @@ def get_chesscom_ratings(username):
         return {'error': str(e)}
 
 # Основная часть приложения в Streamlit.
-st.title("Шахматные рейтинги с Lichess и Chess.com")  # Заголовок страницы.
+st.title("Рейтинги на Lichess и Chess.com")  # Заголовок страницы.
 
 # CSS для тёмной темы — чтобы дизайн был привлекательным.
 # Вставляем через markdown (unsafe_allow_html=True позволяет HTML/CSS).
 st.markdown("""
     <style>
-    .stApp { background-color: #1a1a1a; color: white; }  /* Тёмный фон, белый текст. */
-    input { background-color: #333; color: white; }  /* Поля ввода тёмные. */
-    button { background-color: #556b2f; color: white; }  /* Кнопка зелёная (шахматный стиль). */
+    .stApp { background-color: grey; color: white; }
+    input { background-color: grey; color: white; }
     </style>
 """, unsafe_allow_html=True)
+    # .stApp { background-color: #1a1a1a; color: white; }  /* Тёмный фон, белый текст. */
+    # input { background-color: #333; color: white; }  /* Поля ввода тёмные. */
+    # button { background-color: #556b2f; color: white; }  /* Кнопка зелёная (шахматный стиль). */
 
 # НОВОЕ: Инициализируем session_state для ников, если их нет.
 # Это как проверка: если ключа нет в словаре, добавляем пустую строку.
