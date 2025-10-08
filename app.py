@@ -1,8 +1,8 @@
-import streamlit as st  # Импорт Streamlit для создания веб-интерфейса. Это основная библиотека.
-import requests  # Для отправки запросов к API (получения данных с серверов).
+import streamlit as st
+import requests
 import pandas as pd  # Для создания таблицы из данных — удобно отображать в Streamlit.
-import json  # Для работы с JSON-данными из API.
-import os  # Для работы с файловой системой.
+import json
+import os
 
 # Функция для загрузки никнеймов из файла
 def load_nicknames():
@@ -43,7 +43,7 @@ def get_lichess_ratings(username):
 # Функция для получения рейтингов с Chess.com.
 # Аналогично Lichess, но другой эндпоинт и структура JSON.
 def get_chesscom_ratings(username):
-    username = username.lower()  # Приводим ник к нижнему регистру.
+    username = username.lower()
     url = f"https://api.chess.com/pub/player/{username}/stats"  # URL всегда с lowercase.
     try:
         response = requests.get(url, headers={'User-Agent': 'my-app'})
